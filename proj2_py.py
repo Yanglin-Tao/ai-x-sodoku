@@ -67,11 +67,71 @@ chart
 
 # Find next unassigned variable in the sodoku matrix
 def select_unassigned_variable(board):
+    min_options = float('inf')
+    best_cell = None
+    best_degree = -1
+    
     for row in range(9):
         for col in range(9):
             if board[row][col] == 0:
-                return row, col
-    return None
+                options = find_options(board, row, col)
+                num_options = len(options)
+                if num_options < min_options:
+                    min_options = num_options
+                    best_cell = (row, col, options)
+                    best_degree = calculate_degree(board, row, col)
+                elif num_options == min_options:
+                    current_degree = calculate_degree(board, row, col)
+                    if current_degree > best_degree:
+                        best_cell = (row, col, options)
+                        best_degree = current_degree
+    
+    return best_cell
+
+def find_options(board, row, col):
+    options = set(range(1, 10))
+    block_row, block_col = 3 * (row // 3), 3 * (col // 3)
+
+    # Remove options based on row, column, and block
+    for i in range(9):
+        options.discard(board[row][i])
+        options.discard(board[i][col])
+        options.discard(board[block_row + i//3][block_col + i%3])
+
+    # Remove options based on diagonals if applicable
+    if row == col:
+        for i in range(9):
+            options.discard(board[i][i])
+    if row + col == 8:
+        for i in range(9):
+            options.discard(board[i][8-i])
+
+    return options
+
+def calculate_degree(board, row, col):
+    degree = 0
+    for i in range(9):
+        if board[row][i] == 0:
+            degree += 1
+        if board[i][col] == 0:
+            degree += 1
+        # Check cells in the same block
+        block_row = 3 * (row // 3)
+        block_col = 3 * (col // 3)
+        start_row = block_row + (i // 3)
+        start_col = block_col + (i % 3)
+        if board[start_row][start_col] == 0:
+            degree += 1
+    if row == col:
+        for i in range(9):
+            if board[i][i] == 0:
+                degree += 1
+    if row + col == 8:
+        for i in range(9):
+            if board[i][8-i] == 0:
+                degree += 1
+    return degree
+
 
 # Check whether the assignment is consistent with CSP constraints
 def is_consistent(board, row, col, num):
@@ -99,23 +159,19 @@ def is_consistent(board, row, col, num):
 
 # Implement backtracking algorithm
 def backtrack(board):
-    # Find next unassigned variable
     unassigned = select_unassigned_variable(board)
-    # If all variables are assigned, return
     if not unassigned:
-        return True  
+        return True  # Sudoku solved
+
+    row, col, options = unassigned
     
-    row, col = unassigned
-    
-    # Loop domain values
-    for num in range(1, 10):
-        # Check whether the value is consistent with constraints
+    for num in sorted(options):  # Sort to enforce the ORDER-DOMAIN-VALUES from low to high
         if is_consistent(board, row, col, num):
             board[row][col] = num
             if backtrack(board):
                 return True
-            # Backtrack
             board[row][col] = 0
+    
     return False
 
 
